@@ -8,7 +8,8 @@ import {
   netlifyNotification,
   respond,
   sentryIssueNotification,
-  // webhook,
+  mongodbNotification,
+  webhook,
 } from '../controllers/index.js';
 import { format } from '../lib/utils/index.js';
 
@@ -31,7 +32,7 @@ const routes = (app: Express) => {
   apiV1Router.get('/', helloFriend);
 
   // testing / viewing payload
-  // apiV1Router.post('/webhook', webhook);
+  apiV1Router.post('/test', webhook);
 
   // example chat routes
   // apiV1Router.post('/chat/test', defaultChat);
@@ -47,6 +48,12 @@ const routes = (app: Express) => {
     '/webhook/:space/sentry',
     verifyRequest('sentry'),
     sentryIssueNotification
+  );
+
+  apiV1Router.post(
+    '/webhook/:space/mongodb',
+    verifyRequest('mongodb'),
+    mongodbNotification
   );
 
   app.use('/v1', apiV1Router);

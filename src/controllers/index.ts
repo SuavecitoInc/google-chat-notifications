@@ -8,7 +8,7 @@ import {
   exampleCard,
 } from '../lib/utils/messages.js';
 import type { ChatMessage } from '../lib/types/chat.js';
-import { format } from '../lib/utils/index.js';
+import { createMongoDBCard, format } from '../lib/utils/index.js';
 
 dotenv.config();
 
@@ -140,6 +140,33 @@ export const authenticatedChatMessage = async (req: Request, res: Response) => {
     // Handle the response
     console.log(response);
     res.status(200).send(response);
+  } catch (err: any) {
+    console.log('error', err);
+  }
+};
+
+export const mongodbNotification = async (req: Request, res: Response) => {
+  const { space } = req.params;
+  const sendPayload = req.query?.payload === 'true';
+  const title = req.body?.status ? req.body?.status : 'Notification';
+  const card = createMongoDBCard(title, req.body, sendPayload);
+
+  try {
+    // Create a client
+    const chatClient = createClientWithAppCredentials();
+
+    // Initialize request argument(s)
+    const request = {
+      parent: `spaces/${space}`,
+      message: card,
+    };
+
+    // Make the request
+    const response = await chatClient.createMessage(request);
+
+    // Handle the response
+    console.log(response);
+    res.status(200).send('Webhook received.');
   } catch (err: any) {
     console.log('error', err);
   }
