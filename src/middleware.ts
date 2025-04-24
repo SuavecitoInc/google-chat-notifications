@@ -6,13 +6,14 @@ import { JwksClient } from 'jwks-rsa';
 
 dotenv.config();
 
-type Source = 'netlify' | 'sentry';
+type Source = 'netlify' | 'sentry' | 'mongodb';
 
 type Config = {
   [key in Source]: {
     type: 'jwt' | 'digest';
     key: string;
     secret: string;
+    algorithm: 'SHA256' | 'SHA1';
     encoding?: 'hex' | 'base64';
   };
 };
@@ -22,22 +23,31 @@ const config: Config = {
     type: 'jwt',
     key: 'x-webhook-signature',
     secret: process.env.NETLIFY_CLIENT_SECRET,
+    algorithm: 'SHA256',
   },
   sentry: {
     type: 'digest',
     key: 'sentry-hook-signature',
     secret: process.env.SENTRY_CLIENT_SECRET,
+    algorithm: 'SHA256',
     encoding: 'hex',
+  },
+  mongodb: {
+    type: 'digest',
+    key: 'x-mms-signature',
+    secret: process.env.MONGODB_SECRET,
+    algorithm: 'SHA1',
+    encoding: 'base64',
   },
 };
 
 function verifySignature(source: Source) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const { secret, encoding = 'hex', key } = config[source];
+    const { secret, algorithm, encoding = 'hex', key } = config[source];
     const signature = req.get(key);
 
     const hmac = crypto
-      .createHmac('sha256', secret)
+      .createHmac(algorithm, secret)
       .update(req.rawBody, 'utf8') // removed hex
       .digest(encoding);
     if (hmac === signature) {
