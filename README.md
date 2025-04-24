@@ -158,6 +158,11 @@ NETLIFY_CLIENT_SECRET= # generate this secret yourself and add to all notificati
       <td>/v1/webhook/:space/sentry</td>
       <td>Sends a Google Chat Notification Card with the Sentry Issue / Event information. This route accepts a query param of payload=true, to send the payload in the message</td>
     </tr>
+    <tr>
+      <td>POST</td>
+      <td>/v1/webhook/:space/mongodb</td>
+      <td>Sends a Google Chat Notification Card with the MongoDB notification information. This route accepts a query param of payload=true, to send the payload in the message</td>
+    </tr>
   </tbody>
 </table>
 
