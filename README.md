@@ -132,6 +132,7 @@ EXAMPLE_TOKEN=
 # used to validate requests
 SENTRY_CLIENT_SECRET= # get this by creating an internal integration
 NETLIFY_CLIENT_SECRET= # generate this secret yourself and add to all notifications in netlify
+MONGODB_SECRET= # generate this secret yourself and add to webhook settings in mongodb dashboard
 
 ```
 
