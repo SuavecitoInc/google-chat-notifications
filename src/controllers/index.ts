@@ -8,7 +8,7 @@ import {
   exampleCard,
 } from '../lib/utils/messages.js';
 import type { ChatMessage } from '../lib/types/chat.js';
-import { createMongoDBCard, format } from '../lib/utils/index.js';
+import { createMongoDBCard, format, formatTime } from '../lib/utils/index.js';
 
 dotenv.config();
 
@@ -18,6 +18,19 @@ const TOKEN = process.env.EXAMPLE_TOKEN;
 
 export const helloFriend = (req: Request, res: Response) => {
   res.status(200).send('Hello, friend...');
+};
+
+export const homePage = (req: Request, res: Response) => {
+  res.render('status', {
+    formatted_uptime: formatTime(process.uptime()),
+    uptime: process.uptime(),
+    message: 'Hello, friend...',
+    date: new Date(),
+    // ip: req.ip,
+    ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+    store: process.env.SHOPIFY_STORE,
+    api_version: process.env.SHOPIFY_API_VERSION,
+  });
 };
 
 export const respond = async (req: Request, res: Response) => {
