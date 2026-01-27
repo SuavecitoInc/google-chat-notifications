@@ -30,3 +30,15 @@ export function buildNetlifyDeploymentUrl(payload: NetlifyPayload) {
   const { name, id } = payload;
   return `https://app.netlify.com/sites/${name}/deploys/${id}`;
 }
+
+export function formatTime(totalSeconds: number): string {
+  // Calculate hours, minutes, and remaining seconds
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  // Pad single-digit numbers with a leading zero
+  const pad = (num: number) => num.toString().padStart(2, '0');
+
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+}

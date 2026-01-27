@@ -2,7 +2,8 @@ import express from 'express';
 import type { Express, Request, Response, NextFunction } from 'express';
 import { verifyRequest, verifyChatRequest } from '../middleware.js';
 import {
-  helloFriend,
+  // helloFriend,
+  homePage,
   // authenticatedChatMessage,
   // defaultChat,
   netlifyNotification,
@@ -14,7 +15,7 @@ import {
 import { format } from '../lib/utils/index.js';
 
 const routes = (app: Express) => {
-  app.get('/', helloFriend);
+  app.get('/', homePage);
 
   app.post('/', verifyChatRequest, respond);
 
@@ -29,7 +30,7 @@ const routes = (app: Express) => {
 
   const apiV1Router = express.Router();
 
-  apiV1Router.get('/', helloFriend);
+  apiV1Router.get('/', homePage);
 
   // testing / viewing payload
   apiV1Router.post('/test', webhook);
