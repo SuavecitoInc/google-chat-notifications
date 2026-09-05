@@ -64,7 +64,6 @@ A TypeScript and Express service that receives webhook events from Netlify, Sent
 | `npm start`          | Build the project and run the compiled server.                       |
 | `npm run build:prod` | Compile production assets without deleting `dist/` first.            |
 | `npm run start:prod` | Run the already compiled production server.                          |
-| `npm test`           | Run the Jest test suite.                                             |
 
 ## Endpoints
 
@@ -118,6 +117,174 @@ The NetSuite endpoint validates incoming data before sending the Google Chat car
 Required fields are `recordType`, `recordId`, `eventType`, `title`, and `space`. Optional `severity` values are `info`, `success`, `warning`, and `error`. Although the payload contains `space`, the endpoint uses the `:space` URL parameter as the destination.
 
 Invalid payloads receive `400 Bad Request`; failures while posting to Google Chat receive `502 Bad Gateway`.
+
+The NetSuite custom module:
+
+```typescript
+/**
+ * @NApiVersion 2.1
+ * @NModuleScope SameAccount
+ * @NScriptName Chat Alert Client
+ */
+import * as https from 'N/https';
+import * as crypto from 'N/crypto';
+import * as log from 'N/log';
+
+const SERVER_URL = 'https://your-notifications-host.example.com';
+const SPACE_ID = 'YOUR_GOOGLE_CHAT_SPACE_ID';
+
+export type AlertSeverity = 'info' | 'success' | 'warning' | 'error';
+
+export interface AlertField {
+  label: string;
+  value: string;
+}
+
+export interface SendAlertOptions {
+  recordType: string;
+  recordId: string | number;
+  eventType: string;
+  title: string;
+  message?: string;
+  severity?: AlertSeverity;
+  url?: string;
+  fields?: AlertField[];
+  space?: string;
+}
+
+interface NetSuiteAlertPayload {
+  source: 'netsuite';
+  recordType: string;
+  recordId: string | number;
+  eventType: string;
+  title: string;
+  message?: string;
+  severity: AlertSeverity;
+  url?: string;
+  fields?: AlertField[];
+  space?: string;
+  // timestamp: string;
+}
+
+function buildPayload(options: SendAlertOptions): NetSuiteAlertPayload {
+  return {
+    source: 'netsuite',
+    recordType: options.recordType,
+    recordId: options.recordId,
+    eventType: options.eventType,
+    title: options.title,
+    message: options.message,
+    severity: options.severity ?? 'info',
+    url: options.url,
+    fields: options.fields,
+    space: options?.space ?? SPACE_ID,
+    // timestamp: new Date().toISOString(),
+  };
+}
+
+// Create an API Secret Key for signing the request body
+// Setup > Company > Preferences > API Secrets
+// Use the secrets ID below as the `secret` value in `crypto.createSecretKey`
+function signBody(bodyString: string): string {
+  const secretKey = crypto.createSecretKey({
+    secret: 'custsecret_sp_gchat_alert_hmac', // the script ID, not a GUID
+    encoding: crypto.Encoding.UTF_8,
+  });
+
+  const hmac = crypto.createHmac({
+    algorithm: crypto.HashAlg.SHA256,
+    key: secretKey,
+  });
+
+  hmac.update({ input: bodyString, inputEncoding: crypto.Encoding.UTF_8 });
+  return hmac.digest({ outputEncoding: crypto.Encoding.HEX }) as string;
+}
+
+export function sendAlert(
+  options: SendAlertOptions
+): https.ClientResponse | undefined {
+  const payload = buildPayload(options);
+  const bodyString = JSON.stringify(payload);
+  const signature = signBody(bodyString);
+
+  const SPACE = options.space ?? SPACE_ID;
+
+  const CHAT_ALERT_URL = `${SERVER_URL}/v1/webhook/${SPACE}/netsuite`;
+
+  try {
+    const response = https.post({
+      url: CHAT_ALERT_URL,
+      body: bodyString,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-chat-signature': signature,
+      },
+    });
+
+    if (response.code >= 300) {
+      log.error({
+        title: 'Chat alert failed',
+        details: `${response.code}: ${response.body}`,
+      });
+    }
+
+    return response;
+  } catch (e) {
+    log.error({ title: 'Chat alert error', details: e as string });
+    return undefined;
+  }
+}
+```
+
+Create a NetSuite Secret with script ID custsecret_sp_gchat_alert_hmac, and configure its matching value as NETSUITE_SECRET in the notification service. Deploy this module as a NetSuite custom module, grant consuming scripts access to its secret, and import sendAlert from the module path used in your account.
+
+This is an example of how to use the custom chat alert module in a NetSuite Workflow Action Script. This workflow action sends a notification when a lead record reaches the workflow state where the action is configured. Update the module import path and Google Chat space configuration for your account.
+
+```typescript
+/**
+ * @NApiVersion 2.1
+ * @NScriptType WorkflowActionScript
+ * @NModuleScope public
+ *
+ */
+
+import { EntryPoints } from 'N/types';
+// import * as record from 'N/record';
+import * as runtime from 'N/runtime';
+// @ts-ignore - importing from a custom module
+import { sendAlert } from '../custom-modules/chatAlertClient';
+
+export const onAction: EntryPoints.WorkflowAction.onAction = (context) => {
+  const rec = context.newRecord;
+
+  const companyName = rec.getValue({ fieldId: 'companyname' }) as string;
+  const email = rec.getValue({ fieldId: 'email' }) as string;
+  const businessType = rec.getText({
+    fieldId: 'category',
+  }) as string;
+  const leadSource = rec.getText({
+    fieldId: 'custentity_sp_lead_source',
+  }) as string;
+  const salesRep = rec.getText({ fieldId: 'salesrep' }) as string;
+
+  sendAlert({
+    recordType: 'lead',
+    recordId: rec.id as number,
+    eventType: 'create',
+    title: `New lead: ${companyName || 'Unnamed lead'}`,
+    severity: 'info',
+    url: `${runtime.accountId ? `https://${runtime.accountId}.app.netsuite.com` : ''}/app/common/entity/custjob.nl?id=${rec.id}`,
+    fields: [
+      { label: 'Business Type', value: businessType || '—' },
+      { label: 'Email', value: email || '—' },
+      { label: 'Source', value: leadSource || '—' },
+      { label: 'Sales Rep', value: salesRep || 'Unassigned' },
+    ],
+  });
+
+  // No return needed — this action has no Return Type configured on the deployment
+};
+```
 
 ## Google Chat Commands
 
