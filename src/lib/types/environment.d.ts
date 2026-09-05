@@ -9,6 +9,7 @@ declare global {
       NETLIFY_CLIENT_SECRET: string;
       SENTRY_CLIENT_SECRET: string;
       MONGODB_SECRET: string;
+      NETSUITE_SECRET: string;
     }
   }
 }

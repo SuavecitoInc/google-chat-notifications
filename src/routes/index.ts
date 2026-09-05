@@ -1,6 +1,10 @@
 import express from 'express';
 import type { Express, Request, Response, NextFunction } from 'express';
-import { verifyRequest, verifyChatRequest } from '../middleware.js';
+import {
+  verifyRequest,
+  verifyChatRequest,
+  verifyNetSuiteSignature,
+} from '../middleware.js';
 import {
   // helloFriend,
   homePage,
@@ -9,6 +13,7 @@ import {
   netlifyNotification,
   respond,
   sentryIssueNotification,
+  netsuiteNotification,
   mongodbNotification,
   webhook,
 } from '../controllers/index.js';
@@ -55,6 +60,12 @@ const routes = (app: Express) => {
     '/webhook/:space/mongodb',
     verifyRequest('mongodb'),
     mongodbNotification
+  );
+
+  apiV1Router.post(
+    '/webhook/:space/netsuite',
+    verifyNetSuiteSignature,
+    netsuiteNotification
   );
 
   app.use('/v1', apiV1Router);

@@ -86,9 +86,5 @@
     // This improves issue grouping in Sentry.
     "sourceRoot": "/"
   },
-  "exclude": [
-    "node_modules",
-    "./*.ts",
-    "jest.config.ts"
-  ] /* Exclude files from compilation. */
+  "exclude": ["node_modules", "./*.ts"] /* Exclude files from compilation. */
 }

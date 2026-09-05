@@ -1,6 +1,6 @@
 import { NetlifyPayload } from '../types/netlify.js';
 
-export * from './messages.js';
+export * from './messages/index.js';
 
 export function format(uptime: number) {
   function pad(s: number) {
