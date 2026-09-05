@@ -9,6 +9,7 @@ import {
   netlifyNotification,
   respond,
   sentryIssueNotification,
+  netsuiteNotification,
   mongodbNotification,
   webhook,
 } from '../controllers/index.js';
@@ -55,6 +56,12 @@ const routes = (app: Express) => {
     '/webhook/:space/mongodb',
     verifyRequest('mongodb'),
     mongodbNotification
+  );
+
+  apiV1Router.post(
+    '/webhook/:space/netsuite',
+    verifyRequest('netsuite'),
+    netsuiteNotification
   );
 
   app.use('/v1', apiV1Router);

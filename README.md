@@ -1,193 +1,138 @@
 # Google Chat Notifications
 
-> Google Chat Bot / Webhook Notifications Server
+A TypeScript and Express service that receives webhook events from Netlify, Sentry, MongoDB, and NetSuite, then posts formatted notification cards to Google Chat spaces. It also handles Google Chat app events such as slash commands.
 
-### Setup
+## Requirements
 
----
+- Node.js and npm
+- A Google Cloud project with the Google Chat API enabled
+- A configured Google Chat app with access to the target spaces
+- Application credentials for the Google Chat app
 
-Google Authentication:
+## Setup
 
-Step 1: Create a Google Cloud Project
+1. Install dependencies:
 
-1.  Go to Google Cloud Console:
+   ```bash
+   npm install
+   ```
 
-    - Visit Google Cloud Console.
+2. Place the Google credentials used by the application in the project root:
 
-2.  Create a New Project:
+   - `client_secrets.json`: OAuth client credentials from **Google Cloud Console > APIs & Services > Credentials**.
+   - `service_account.json`: Service account JSON key from **Google Cloud Console > IAM & Admin > Service Accounts**.
 
-    - Click on the project dropdown in the top navigation bar.
-    - Click on "New Project".
-    - Enter a project name and select an organization if applicable.
-    - Click "Create".
+   Keep these files private. They grant access to Google Cloud resources and must not be committed to source control.
 
-Step 2: Enable Google Chat API
+3. Create a `.env` file in the project root:
 
-1.  Navigate to the API Library:
+   ```dotenv
+   # Server
+   PORT=3000
 
-    - In the left sidebar, go to "APIs & Services" > "Library".
+   # Google Chat request verification
+   PROJECT_NUMBER=your-google-cloud-project-number
 
-2.  Search for Google Chat API:
+   # Inbound webhook verification
+   NETLIFY_CLIENT_SECRET=replace-with-netlify-webhook-secret
+   SENTRY_CLIENT_SECRET=replace-with-sentry-integration-secret
+   MONGODB_SECRET=replace-with-mongodb-webhook-secret
+   NETSUITE_SECRET=replace-with-netsuite-webhook-secret
 
-    - In the search bar, type "Google Chat API".
-    - Click on "Google Chat API" from the search results.
+   # Optional values used by example controllers
+   EXAMPLE_SPACE=spaces/your-space-id
+   EXAMPLE_KEY=your-incoming-webhook-key
+   EXAMPLE_TOKEN=your-incoming-webhook-token
+   ```
 
-3.  Enable the API:
+4. Add the configured Google Chat app to every Google Chat space that should receive notifications.
 
-    - Click the "Enable" button.
+5. Start the development server:
 
-Step 3: Create a Service Account
+   ```bash
+   npm run dev
+   ```
 
-1.  Go to Service Accounts:
+   The service listens at `http://localhost:3000` by default.
 
-    - In the left sidebar, navigate to "APIs & Services" > "Credentials".
+## Commands
 
-2.  Create a Service Account:
+| Command              | Description                                                          |
+| -------------------- | -------------------------------------------------------------------- |
+| `npm run dev`        | Run the TypeScript server with file watching.                        |
+| `npm run build`      | Compile TypeScript, copy required JSON and view assets into `dist/`. |
+| `npm start`          | Build the project and run the compiled server.                       |
+| `npm run build:prod` | Compile production assets without deleting `dist/` first.            |
+| `npm run start:prod` | Run the already compiled production server.                          |
+| `npm test`           | Run the Jest test suite.                                             |
 
-    - Click on "Create Credentials" and select "Service account".
+## Endpoints
 
-3.  Fill in Service Account Details:
+| Method | Path                          | Authentication                          | Description                                                              |
+| ------ | ----------------------------- | --------------------------------------- | ------------------------------------------------------------------------ |
+| `GET`  | `/`                           | None                                    | Renders the service status page.                                         |
+| `POST` | `/`                           | Google Chat bearer token                | Receives Google Chat app events and responds to supported commands.      |
+| `GET`  | `/uptime`                     | None                                    | Returns server uptime and basic request details as JSON.                 |
+| `GET`  | `/v1`                         | None                                    | Renders the service status page.                                         |
+| `POST` | `/v1/test`                    | None                                    | Logs a webhook request for local testing and returns `Webhook received.` |
+| `POST` | `/v1/webhook/:space/netlify`  | JWT in `x-webhook-signature`            | Sends a Netlify notification to the specified Google Chat space.         |
+| `POST` | `/v1/webhook/:space/sentry`   | SHA-256 HMAC in `sentry-hook-signature` | Sends a Sentry notification to the specified Google Chat space.          |
+| `POST` | `/v1/webhook/:space/mongodb`  | SHA-1 HMAC in `x-mms-signature`         | Sends a MongoDB notification to the specified Google Chat space.         |
+| `POST` | `/v1/webhook/:space/netsuite` | SHA-256 HMAC in `x-chat-signature`      | Sends a NetSuite alert to the specified Google Chat space.               |
 
-    - Enter a name and description for the service account.
-    - Click "Create".
+Replace `:space` with the Google Chat space ID, without the `spaces/` prefix. For example: `/v1/webhook/AAAA123/netsuite` posts to `spaces/AAAA123`.
 
-4.  Grant Service Account Permissions (Optional):
+## Webhook Verification
 
-    - Assign roles as needed. For Google Chat API, typically you might need roles like Chat Bot or Editor.
-    - Click "Continue".
+Each provider endpoint verifies the raw request body before the controller processes it:
 
-5.  Skip the Key Creation Step:
+| Provider | Header                  | Verification                                                       |
+| -------- | ----------------------- | ------------------------------------------------------------------ |
+| Netlify  | `x-webhook-signature`   | JWT signed with `NETLIFY_CLIENT_SECRET`; issuer must be `netlify`. |
+| Sentry   | `sentry-hook-signature` | SHA-256 HMAC encoded as hexadecimal using `SENTRY_CLIENT_SECRET`.  |
+| MongoDB  | `x-mms-signature`       | SHA-1 HMAC encoded as Base64 using `MONGODB_SECRET`.               |
+| NetSuite | `x-chat-signature`      | SHA-256 HMAC encoded as hexadecimal using `NETSUITE_SECRET`.       |
 
-    - Click "Done" to finish creating the service account.
+Requests that fail verification receive `403 Forbidden`. Make sure the provider signs the exact raw JSON body sent to the service.
 
-Step 4: Create and Download Keys
+## NetSuite Alert Payload
 
-1.  Open Service Account Details:
+The NetSuite endpoint validates incoming data before sending the Google Chat card. It expects this shape:
 
-    - Find the newly created service account in the list and click on it.
-
-2.  Add Key:
-
-    - Go to the "Keys" tab.
-    - Click on "Add Key" and choose "JSON".
-
-3.  Download the Key:
-
-    - A JSON file will be automatically downloaded. This file contains your credentials, so keep it secure.
-
-Step 5: Configure the API
-
-1.  Set Up OAuth Consent Screen:
-
-    - Go to "APIs & Services" > "OAuth consent screen".
-    - Configure the consent screen as required (for internal or external use).
-    - Fill out the necessary fields, then save.
-
-2.  Use Service Account in Your Application:
-
-    - Integrate the service account credentials in your application using the downloaded JSON key. Libraries are available for various programming languages to facilitate this.
-
-Step 6: Test the Google Chat API
-
-1.  Make API Calls:
-
-    - Use tools like Postman or your application code to make API calls to Google Chat using the service account credentials.
-
-2.  Send a Test Message:
-
-    - Ensure your service account has the necessary permissions to interact with the Google Chat API and send messages.
-
-Additional Tips
-
-- Secure Your JSON Key: Keep your service account key secure; do not share it publicly.
-- Review Quotas and Billing: Monitor your project for API usage and ensure you’re aware of any billing implications.
-- Explore Documentation: Check the Google Chat API documentation for further details and code examples.
-
----
-
-Google Authentication files required:
-
-- client_secrets.json
-  - Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs
-- service_account.json
-  - Google Cloud Console > IAM & Admin > Service Accounts > Keys
-
----
-
-Google Spaces:
-
-- Create a Google Space in Google Chat to send the notifications to. the app must be added into the space with `@Suavecito`
-
----
-
-Environmental Variables:
-
-```bash
-# used for gchat verification
-PROJECT_NUMBER=
-# used for examle routes / controllers
-EXAMPLE_SPACE=
-EXAMPLE_KEY=
-EXAMPLE_TOKEN=
-# used to validate requests
-SENTRY_CLIENT_SECRET= # get this by creating an internal integration
-NETLIFY_CLIENT_SECRET= # generate this secret yourself and add to all notifications in netlify
-MONGODB_SECRET= # generate this secret yourself and add to webhook settings in mongodb dashboard
-
+```json
+{
+  "source": "netsuite",
+  "recordType": "salesorder",
+  "recordId": "12345",
+  "eventType": "created",
+  "title": "Sales order created",
+  "message": "Order SO-12345 was created.",
+  "severity": "info",
+  "url": "https://example.app.netsuite.com/app/accounting/transactions/salesord.nl?id=12345",
+  "fields": [{ "label": "Customer", "value": "Example Customer" }],
+  "space": "AAAA123",
+  "timestamp": "2026-09-04T12:00:00.000Z"
+}
 ```
 
----
+Required fields are `recordType`, `recordId`, `eventType`, `title`, and `space`. Optional `severity` values are `info`, `success`, `warning`, and `error`. Although the payload contains `space`, the endpoint uses the `:space` URL parameter as the destination.
 
-### Routes
+Invalid payloads receive `400 Bad Request`; failures while posting to Google Chat receive `502 Bad Gateway`.
 
-<table>
-  <thead>
-    <tr>
-      <th>Method</th>
-      <th>Endpoint</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>POST</td>
-      <td>/v1/webhook/:space/netlify</td>
-      <td>Sends a Google Chat Notification Card with the Netlify Deployment / Event information. This route accepts a query param of payload=true, to send the payload in the message.</td>
-    </tr>
-    <tr>
-      <td>POST</td>
-      <td>/v1/webhook/:space/sentry</td>
-      <td>Sends a Google Chat Notification Card with the Sentry Issue / Event information. This route accepts a query param of payload=true, to send the payload in the message</td>
-    </tr>
-    <tr>
-      <td>POST</td>
-      <td>/v1/webhook/:space/mongodb</td>
-      <td>Sends a Google Chat Notification Card with the MongoDB notification information. This route accepts a query param of payload=true, to send the payload in the message</td>
-    </tr>
-  </tbody>
-</table>
+## Google Chat Commands
 
-### App / Bot
+Google Chat app events are delivered to `POST /` and must include a bearer token that verifies against the configured project number. The app currently supports the following slash command IDs:
 
-> The app / bot can be added into a space by using the `@Suavecito` command.
+| Command ID | Response                                                   |
+| ---------- | ---------------------------------------------------------- |
+| `1`        | Returns the incoming Google Chat event as a response card. |
+| `2`        | Returns the server uptime.                                 |
 
-Slash Commands:
+Configure the corresponding slash-command names and IDs in the Google Chat API configuration for the app.
 
-<table>
-  <thead>
-    <tr>
-      <th>Command</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>/hello</td>
-      <td>This command returns the message payload as a card message.</td>
-    </tr>
-    <tr>
-      <td>/uptime</td>
-      <td>This command returns the server's uptime in HH:MM:SS.</td>
-    </tr>
-  </tbody>
-</table>
+## Deployment Notes
+
+- Set all environment variables and provide the required credential JSON files in the deployment environment.
+- Expose the service over HTTPS so Google Chat and webhook providers can reach it.
+- Configure Google Chat to send app events to the public `POST /` URL.
+- Configure each provider to send webhooks to its matching `/v1/webhook/:space/<provider>` endpoint and use the same signing secret configured in `.env`.
