@@ -120,6 +120,8 @@ Invalid payloads receive `400 Bad Request`; failures while posting to Google Cha
 
 The NetSuite custom module:
 
+> Create a NetSuite Secret with script ID custsecret_sp_gchat_alert_hmac, and configure its matching value as NETSUITE_SECRET in the notification service. Deploy this module as a NetSuite custom module, grant consuming scripts access to its secret, and import sendAlert from the module path used in your account.
+
 ```typescript
 /**
  * @NApiVersion 2.1
@@ -236,9 +238,9 @@ export function sendAlert(
 }
 ```
 
-Create a NetSuite Secret with script ID custsecret_sp_gchat_alert_hmac, and configure its matching value as NETSUITE_SECRET in the notification service. Deploy this module as a NetSuite custom module, grant consuming scripts access to its secret, and import sendAlert from the module path used in your account.
+This is an example of how to use the custom chat alert module in a NetSuite Workflow Action Script.
 
-This is an example of how to use the custom chat alert module in a NetSuite Workflow Action Script. This workflow action sends a notification when a lead record reaches the workflow state where the action is configured. Update the module import path and Google Chat space configuration for your account.
+> This workflow action sends a notification when a lead record reaches the workflow state where the action is configured. Update the module import path and Google Chat space configuration for your account.
 
 ```typescript
 /**
