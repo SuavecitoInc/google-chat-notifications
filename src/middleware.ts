@@ -51,13 +51,13 @@ const config: Config = {
 function verifySignature(source: Source) {
   return (req: Request, res: Response, next: NextFunction) => {
     const { secret, algorithm, encoding = 'hex', key } = config[source];
-    const signature = req.get(key)?.toLowerCase();
+    const signature = req.get(key);
 
     const hmac = crypto
       .createHmac(algorithm, secret)
       .update(req.rawBody, 'utf8') // removed hex
-      .digest(encoding)
-      .toLowerCase();
+      .digest(encoding);
+
     if (hmac === signature) {
       console.log('+++++++++++++++++ REQUEST VERIFIED +++++++++++++++++>');
       next();
@@ -69,6 +69,33 @@ function verifySignature(source: Source) {
       });
     }
   };
+}
+
+export function verifyNetSuiteSignature(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  const { secret, algorithm, encoding = 'hex', key } = config.netsuite;
+  // NetSuite seems to send the signature in uppercase, so we normalize it to lowercase for comparison.
+  const signature = req.get(key)?.toLowerCase();
+
+  const hmac = crypto
+    .createHmac(algorithm, secret)
+    .update(req.rawBody, 'utf8') // removed hex
+    .digest(encoding)
+    ?.toLowerCase();
+
+  if (hmac === signature) {
+    console.log('+++++++++++++++++ REQUEST VERIFIED +++++++++++++++++>');
+    next();
+  } else {
+    console.log('+++++++++++++++++ ERROR - FORBIDDEN +++++++++++++++++>');
+    res.status(403).json({
+      success: false,
+      error: 'Forbidden',
+    });
+  }
 }
 
 function verifyJWT(source: Source) {

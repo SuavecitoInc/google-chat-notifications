@@ -1,6 +1,10 @@
 import express from 'express';
 import type { Express, Request, Response, NextFunction } from 'express';
-import { verifyRequest, verifyChatRequest } from '../middleware.js';
+import {
+  verifyRequest,
+  verifyChatRequest,
+  verifyNetSuiteSignature,
+} from '../middleware.js';
 import {
   // helloFriend,
   homePage,
@@ -60,7 +64,7 @@ const routes = (app: Express) => {
 
   apiV1Router.post(
     '/webhook/:space/netsuite',
-    verifyRequest('netsuite'),
+    verifyNetSuiteSignature,
     netsuiteNotification
   );
 
